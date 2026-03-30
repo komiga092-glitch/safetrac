@@ -3,12 +3,15 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$role = $_SESSION['role'] ?? '';
-$current_page = basename($_SERVER['PHP_SELF']);
+$role = trim((string)($_SESSION['role'] ?? ''));
+$current_page = basename((string)($_SERVER['PHP_SELF'] ?? ''));
+$full_name = trim((string)($_SESSION['full_name'] ?? 'User'));
+
+$role_label = ucwords(str_replace('_', ' ', $role));
 
 $sidebar_unread_count = 0;
 
-if (isset($conn) && isset($_SESSION['user_id'], $_SESSION['company_id'])) {
+if (isset($conn) && $conn instanceof mysqli && isset($_SESSION['user_id'], $_SESSION['company_id'])) {
     $sidebar_user_id = (int)$_SESSION['user_id'];
     $sidebar_company_id = (int)$_SESSION['company_id'];
 
@@ -17,31 +20,36 @@ if (isset($conn) && isset($_SESSION['user_id'], $_SESSION['company_id'])) {
         FROM notifications
         WHERE company_id = ? AND user_id = ? AND is_read = 0
     ");
-    $nq->bind_param("ii", $sidebar_company_id, $sidebar_user_id);
-    $nq->execute();
-    $nr = $nq->get_result()->fetch_assoc();
-    $sidebar_unread_count = (int)($nr['total'] ?? 0);
+
+    if ($nq) {
+        $nq->bind_param("ii", $sidebar_company_id, $sidebar_user_id);
+        $nq->execute();
+        $nr = $nq->get_result()->fetch_assoc();
+        $sidebar_unread_count = (int)($nr['total'] ?? 0);
+        $nq->close();
+    }
 }
 ?>
 
 <div class="topbar">
     <div class="d-flex align-items-center gap-3">
-        <button class="menu-toggle" id="menuToggle" type="button">
+        <button class="menu-toggle" id="menuToggle" type="button" aria-label="Toggle menu">
             <i class="bi bi-list"></i>
         </button>
 
-        <div class="topbar-brand">
+        <a href="/safetrac/dashboard.php" class="topbar-brand text-white">
             <i class="bi bi-shield-check"></i>
             <span>SafeTrack</span>
-        </div>
+        </a>
     </div>
 
     <div class="topbar-right">
         <div class="topbar-user">
-            Hello, <strong><?= htmlspecialchars($_SESSION['full_name'] ?? 'User', ENT_QUOTES, 'UTF-8'); ?></strong>
+            Hello, <strong><?= htmlspecialchars($full_name, ENT_QUOTES, 'UTF-8'); ?></strong>
         </div>
+
         <span class="badge bg-light text-dark text-uppercase">
-            <?= htmlspecialchars($role, ENT_QUOTES, 'UTF-8'); ?>
+            <?= htmlspecialchars($role_label ?: 'User', ENT_QUOTES, 'UTF-8'); ?>
         </span>
     </div>
 </div>
@@ -51,7 +59,7 @@ if (isset($conn) && isset($_SESSION['user_id'], $_SESSION['company_id'])) {
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-head">
         <h5 class="sidebar-title mb-0">Construction Safety</h5>
-        <div class="sidebar-subtitle">Inspection & Issue Tracking</div>
+        <div class="sidebar-subtitle">Inspection &amp; Issue Tracking</div>
     </div>
 
     <div class="menu-section-title">Main</div>
@@ -125,7 +133,7 @@ if (isset($conn) && isset($_SESSION['user_id'], $_SESSION['company_id'])) {
         <span>New Inspection</span>
     </a>
 
-    <a class="nav-link <?= $current_page === 'recheck_issues.php' || $current_page === 'recheck_issue.php' ? 'active' : ''; ?>"
+    <a class="nav-link <?= in_array($current_page, ['recheck_issues.php', 'recheck_issue.php'], true) ? 'active' : ''; ?>"
         href="/safetrac/safety_officer/recheck_issues.php">
         <i class="bi bi-arrow-repeat"></i>
         <span>Recheck Issues</span>
@@ -135,7 +143,7 @@ if (isset($conn) && isset($_SESSION['user_id'], $_SESSION['company_id'])) {
     <?php if ($role === 'supervisor'): ?>
     <div class="menu-section-title">Corrective Actions</div>
 
-    <a class="nav-link <?= $current_page === 'issues_list.php' || $current_page === 'issue_update.php' ? 'active' : ''; ?>"
+    <a class="nav-link <?= in_array($current_page, ['issues_list.php', 'issue_update.php'], true) ? 'active' : ''; ?>"
         href="/safetrac/supervisor/issues_list.php">
         <i class="bi bi-tools"></i>
         <span>Assigned Issues</span>

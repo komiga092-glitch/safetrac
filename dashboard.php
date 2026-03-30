@@ -1,5 +1,6 @@
 <?php
 require_once 'includes/session.php';
+
 require_once 'config/db.php';
 
 $pageTitle = "Dashboard";
@@ -32,17 +33,17 @@ function getAverageScore($conn, $sql, $types = '', $params = [])
     return (float)($res['avg_score'] ?? 0);
 }
 
-$total_projects         = getCount($conn, "SELECT COUNT(*) AS total FROM projects WHERE company_id = ?", "i", [$company_id]);
-$total_users            = getCount($conn, "SELECT COUNT(*) AS total FROM users WHERE company_id = ?", "i", [$company_id]);
-$unread_notifications   = getCount($conn, "SELECT COUNT(*) AS total FROM notifications WHERE company_id = ? AND user_id = ? AND is_read = 0", "ii", [$company_id, $user_id]);
+$total_projects        = getCount($conn, "SELECT COUNT(*) AS total FROM projects WHERE company_id = ?", "i", [$company_id]);
+$total_users           = getCount($conn, "SELECT COUNT(*) AS total FROM users WHERE company_id = ?", "i", [$company_id]);
+$unread_notifications  = getCount($conn, "SELECT COUNT(*) AS total FROM notifications WHERE company_id = ? AND user_id = ? AND is_read = 0", "ii", [$company_id, $user_id]);
 
-$total_inspections      = 0;
-$total_open_issues      = 0;
-$total_closed_issues    = 0;
-$total_overdue_issues   = 0;
-$total_recheck_pending  = 0;
-$total_critical_issues  = 0;
-$safety_score           = 0;
+$total_inspections     = 0;
+$total_open_issues     = 0;
+$total_closed_issues   = 0;
+$total_overdue_issues  = 0;
+$total_recheck_pending = 0;
+$total_critical_issues = 0;
+$safety_score          = 0;
 
 if ($role === 'company_admin') {
     $total_inspections = getCount($conn, "SELECT COUNT(*) AS total FROM inspections WHERE company_id = ?", "i", [$company_id]);
@@ -60,7 +61,11 @@ if ($role === 'company_admin') {
 }
 
 if ($role === 'safety_officer') {
-    $total_inspections = getCount($conn, "SELECT COUNT(*) AS total FROM inspections WHERE company_id = ? AND conducted_by = ?", "ii", [$company_id, $user_id]);
+    $total_inspections = getCount($conn, "
+        SELECT COUNT(*) AS total
+        FROM inspections
+        WHERE company_id = ? AND conducted_by = ?
+    ", "ii", [$company_id, $user_id]);
 
     $total_open_issues = getCount($conn, "
         SELECT COUNT(*) AS total
@@ -247,300 +252,9 @@ $issue_chart_values = [
     $total_critical_issues,
     $total_overdue_issues
 ];
+
+include 'includes/sidebar.php';
 ?>
-
-<style>
-.needle-meter-card {
-    border: none;
-    border-radius: 22px;
-    background: #ffffff;
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-    overflow: hidden;
-}
-
-.gauge-wrap {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px 0 10px;
-}
-
-.gauge-box {
-    position: relative;
-    width: 340px;
-    height: 220px;
-}
-
-.gauge-svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-}
-
-.gauge-center-cap {
-    position: absolute;
-    left: 50%;
-    top: 78%;
-    width: 22px;
-    height: 22px;
-    background: #0b1f3a;
-    border: 4px solid #fff;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
-    z-index: 4;
-}
-
-.gauge-needle {
-    position: absolute;
-    left: 50%;
-    top: 78%;
-    width: 120px;
-    height: 4px;
-    background: #0b1f3a;
-    transform-origin: 0% 50%;
-    border-radius: 999px;
-    z-index: 3;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-    transition: transform 1.2s ease;
-}
-
-.gauge-score-box {
-    position: absolute;
-    left: 50%;
-    top: 58%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    z-index: 2;
-}
-
-.gauge-score-value {
-    font-size: 34px;
-    font-weight: 700;
-    line-height: 1;
-    color: #0b1f3a;
-}
-
-.gauge-score-label {
-    margin-top: 6px;
-    font-size: 15px;
-    font-weight: 600;
-}
-
-.gauge-scale {
-    position: absolute;
-    bottom: 10px;
-    left: 0;
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    font-size: 13px;
-    color: #64748b;
-    padding: 0 18px;
-}
-
-.gauge-legend {
-    display: flex;
-    justify-content: center;
-    gap: 14px;
-    flex-wrap: wrap;
-    margin-top: 10px;
-}
-
-.gauge-legend-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    color: #475569;
-    font-weight: 600;
-}
-
-.gauge-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-}
-
-.gauge-dot.safe {
-    background: #16a34a;
-}
-
-.gauge-dot.moderate {
-    background: #f97316;
-}
-
-.gauge-dot.risk {
-    background: #dc2626;
-}
-
-.gauge-note-box {
-    border-radius: 16px;
-    background: #f8fafc;
-    padding: 16px;
-    border: 1px solid #e5e7eb;
-}
-
-.quick-chip {
-    display: inline-block;
-    padding: 8px 14px;
-    border-radius: 999px;
-    background: #eef2ff;
-    color: #163a63;
-    font-weight: 600;
-    margin-right: 8px;
-    margin-bottom: 8px;
-}
-
-.project-mini-card {
-    border: none;
-    border-radius: 20px;
-    background: #ffffff;
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-    height: 100%;
-    overflow: hidden;
-}
-
-.project-mini-header {
-    background: linear-gradient(120deg, #0b1f3a, #163a63);
-    color: #fff;
-    padding: 14px 16px;
-}
-
-.project-mini-body {
-    padding: 18px;
-}
-
-.mini-gauge-wrap {
-    display: flex;
-    justify-content: center;
-    margin: 10px 0 6px;
-}
-
-.mini-gauge-box {
-    position: relative;
-    width: 190px;
-    height: 120px;
-}
-
-.mini-gauge-svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-}
-
-.mini-gauge-needle {
-    position: absolute;
-    left: 50%;
-    top: 78%;
-    width: 62px;
-    height: 3px;
-    background: #0b1f3a;
-    transform-origin: 0% 50%;
-    border-radius: 999px;
-    z-index: 3;
-    transition: transform 1s ease;
-}
-
-.mini-gauge-cap {
-    position: absolute;
-    left: 50%;
-    top: 78%;
-    width: 14px;
-    height: 14px;
-    background: #0b1f3a;
-    border: 3px solid #fff;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 4;
-}
-
-.mini-score-box {
-    position: absolute;
-    left: 50%;
-    top: 58%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-}
-
-.mini-score-value {
-    font-size: 22px;
-    font-weight: 700;
-    color: #0b1f3a;
-    line-height: 1;
-}
-
-.mini-score-label {
-    margin-top: 4px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.project-meta {
-    font-size: 14px;
-    color: #64748b;
-    margin-bottom: 6px;
-}
-
-.project-stat-line {
-    display: flex;
-    justify-content: space-between;
-    border-top: 1px solid #e5e7eb;
-    padding-top: 10px;
-    margin-top: 10px;
-    font-size: 14px;
-}
-
-.chart-card {
-    border: none;
-    border-radius: 20px;
-    background: #ffffff;
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-    padding: 20px;
-    height: 100%;
-}
-
-.chart-box {
-    position: relative;
-    height: 320px;
-}
-
-.chart-box-small {
-    position: relative;
-    height: 320px;
-}
-
-@media (max-width: 768px) {
-    .gauge-box {
-        width: 280px;
-        height: 190px;
-    }
-
-    .gauge-needle {
-        width: 95px;
-    }
-
-    .gauge-score-value {
-        font-size: 28px;
-    }
-
-    .mini-gauge-box {
-        width: 170px;
-        height: 110px;
-    }
-
-    .mini-gauge-needle {
-        width: 52px;
-    }
-
-    .chart-box,
-    .chart-box-small {
-        height: 260px;
-    }
-}
-</style>
-
-<?php include 'includes/sidebar.php'; ?>
 
 <div class="card page-card p-4 mb-4">
     <h3 class="mb-2">Welcome to SafeTrack</h3>

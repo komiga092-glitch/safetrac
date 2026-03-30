@@ -6,7 +6,6 @@ $pageTitle = "Notifications";
 
 $user_id    = (int)($_SESSION['user_id'] ?? 0);
 $company_id = (int)($_SESSION['company_id'] ?? 0);
-$role       = $_SESSION['role'] ?? '';
 
 $msg = '';
 $msg_type = 'success';
@@ -24,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_one_read'])) {
         $stmt->execute();
 
         $msg = "Notification marked as read.";
+        $msg_type = 'success';
     }
 }
 
@@ -37,22 +37,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_all_read'])) {
     $stmt->execute();
 
     $msg = "All notifications marked as read.";
+    $msg_type = 'success';
 }
 
-$type_filter = trim($_GET['type'] ?? '');
-$read_filter = trim($_GET['read_status'] ?? '');
+$table_filter = trim($_GET['related_table'] ?? '');
+$read_filter  = trim($_GET['read_status'] ?? '');
 
 $sql = "
-    SELECT notification_id, title, message, type, is_read, created_at
+    SELECT notification_id, title, message, related_table, related_id, is_read, created_at
     FROM notifications
     WHERE company_id = ? AND user_id = ?
 ";
 $params = [$company_id, $user_id];
 $types  = "ii";
 
-if ($type_filter !== '') {
-    $sql .= " AND type = ? ";
-    $params[] = $type_filter;
+if ($table_filter !== '') {
+    $sql .= " AND related_table = ? ";
+    $params[] = $table_filter;
     $types .= "s";
 }
 
@@ -77,12 +78,13 @@ while ($row = $res->fetch_assoc()) {
 }
 
 include 'includes/header.php';
+include 'includes/sidebar.php';
 ?>
 
-
-<?php include 'includes/sidebar.php'; ?>
 <?php if ($msg !== ''): ?>
-<div class="alert alert-<?= htmlspecialchars($msg_type); ?>"><?= htmlspecialchars($msg); ?></div>
+<div class="alert alert-<?= htmlspecialchars($msg_type, ENT_QUOTES, 'UTF-8'); ?>">
+    <?= htmlspecialchars($msg, ENT_QUOTES, 'UTF-8'); ?>
+</div>
 <?php endif; ?>
 
 <div class="card page-card p-4 mb-4">
@@ -90,23 +92,17 @@ include 'includes/header.php';
         <div class="col-md-8">
             <form method="GET" class="row g-3">
                 <div class="col-md-4">
-                    <label class="form-label">Type</label>
-                    <select name="type" class="form-select">
+                    <label class="form-label">Notification Type</label>
+                    <select name="related_table" class="form-select">
                         <option value="">All Types</option>
-                        <option value="assignment" <?= $type_filter === 'assignment' ? 'selected' : ''; ?>>Assignment
+                        <option value="project_staff" <?= $table_filter === 'project_staff' ? 'selected' : ''; ?>>
+                            Project Assignment</option>
+                        <option value="issues" <?= $table_filter === 'issues' ? 'selected' : ''; ?>>Issue Alerts
                         </option>
-                        <option value="issue_assignment" <?= $type_filter === 'issue_assignment' ? 'selected' : ''; ?>>
-                            Issue
-                            Assignment</option>
-                        <option value="recheck_pending" <?= $type_filter === 'recheck_pending' ? 'selected' : ''; ?>>
-                            Recheck Pending
-                        </option>
-                        <option value="issue_closed" <?= $type_filter === 'issue_closed' ? 'selected' : ''; ?>>Issue
-                            Closed
-                        </option>
-                        <option value="issue_reopened" <?= $type_filter === 'issue_reopened' ? 'selected' : ''; ?>>Issue
-                            Reopened
-                        </option>
+                        <option value="issue_updates" <?= $table_filter === 'issue_updates' ? 'selected' : ''; ?>>Issue
+                            Updates</option>
+                        <option value="inspections" <?= $table_filter === 'inspections' ? 'selected' : ''; ?>>Inspection
+                            Alerts</option>
                     </select>
                 </div>
 
@@ -114,10 +110,8 @@ include 'includes/header.php';
                     <label class="form-label">Read Status</label>
                     <select name="read_status" class="form-select">
                         <option value="">All</option>
-                        <option value="unread" <?= $read_filter === 'unread' ? 'selected' : ''; ?>>
-                            Unread</option>
-                        <option value="read" <?= $read_filter === 'read' ? 'selected' : ''; ?>>Read
-                        </option>
+                        <option value="unread" <?= $read_filter === 'unread' ? 'selected' : ''; ?>>Unread</option>
+                        <option value="read" <?= $read_filter === 'read' ? 'selected' : ''; ?>>Read</option>
                     </select>
                 </div>
 
@@ -147,28 +141,53 @@ include 'includes/header.php';
     <div class="row g-3">
         <?php foreach ($notifications as $n): ?>
         <?php
-                                $typeClass = 'secondary';
-                                if ($n['type'] === 'assignment') $typeClass = 'primary';
-                                if ($n['type'] === 'issue_assignment') $typeClass = 'danger';
-                                if ($n['type'] === 'recheck_pending') $typeClass = 'warning';
-                                if ($n['type'] === 'issue_closed') $typeClass = 'success';
-                                if ($n['type'] === 'issue_reopened') $typeClass = 'dark';
-                                ?>
+                $typeClass = 'secondary';
+                $typeLabel = 'General';
+
+                if ($n['related_table'] === 'project_staff') {
+                    $typeClass = 'primary';
+                    $typeLabel = 'Assignment';
+                } elseif ($n['related_table'] === 'issues') {
+                    $typeClass = 'danger';
+                    $typeLabel = 'Issue';
+                } elseif ($n['related_table'] === 'issue_updates') {
+                    $typeClass = 'warning';
+                    $typeLabel = 'Update';
+                } elseif ($n['related_table'] === 'inspections') {
+                    $typeClass = 'info';
+                    $typeLabel = 'Inspection';
+                }
+                ?>
         <div class="col-md-12">
             <div class="border rounded-4 p-3 <?= ((int)$n['is_read'] === 0) ? 'bg-light' : ''; ?>">
                 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
                     <div>
                         <h6 class="mb-1">
-                            <?= htmlspecialchars($n['title']); ?>
+                            <?= htmlspecialchars($n['title'], ENT_QUOTES, 'UTF-8'); ?>
                             <?php if ((int)$n['is_read'] === 0): ?>
                             <span class="badge bg-danger ms-2">New</span>
                             <?php endif; ?>
                         </h6>
+
                         <div class="mb-2">
-                            <span class="badge bg-<?= $typeClass; ?>"><?= htmlspecialchars($n['type']); ?></span>
+                            <span class="badge bg-<?= $typeClass; ?>">
+                                <?= htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8'); ?>
+                            </span>
+
+                            <?php if (!empty($n['related_id'])): ?>
+                            <span class="badge bg-secondary ms-1">
+                                Ref #<?= (int)$n['related_id']; ?>
+                            </span>
+                            <?php endif; ?>
                         </div>
-                        <p class="mb-2 text-muted"><?= htmlspecialchars($n['message']); ?></p>
-                        <small class="text-muted"><?= htmlspecialchars($n['created_at']); ?></small>
+
+                        <p class="mb-2 text-muted">
+                            <?= htmlspecialchars($n['message'], ENT_QUOTES, 'UTF-8'); ?>
+                        </p>
+
+                        <small class="text-muted">
+                            <?= htmlspecialchars($n['created_at'], ENT_QUOTES, 'UTF-8'); ?>
+                        </small>
                     </div>
 
                     <div>
@@ -191,11 +210,6 @@ include 'includes/header.php';
     <?php else: ?>
     <div class="text-center text-muted py-4">No notifications found.</div>
     <?php endif; ?>
-</div>
-
-</div>
-</div>
-</div>
 </div>
 
 <?php include 'includes/footer.php'; ?>

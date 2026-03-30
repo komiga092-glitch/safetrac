@@ -60,12 +60,12 @@ while ($row = $res->fetch_assoc()) {
 
 $recent_inspections = [];
 $stmt2 = $conn->prepare("
-    SELECT i.inspection_id, i.inspection_title, i.inspection_date, i.overall_score, i.risk_level, i.overall_status,
+    SELECT i.inspection_id, i.inspection_code, i.inspection_date, i.overall_score, i.risk_level, i.status AS overall_status,
            p.project_name, p.site_name,
            u.full_name AS officer_name
     FROM inspections i
     INNER JOIN projects p ON i.project_id = p.project_id
-    LEFT JOIN users u ON i.inspected_by = u.user_id
+    LEFT JOIN users u ON i.conducted_by = u.user_id
     WHERE i.company_id = ?
     ORDER BY i.inspection_id DESC
     LIMIT 10

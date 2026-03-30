@@ -14,26 +14,49 @@ $issue_id   = (int)($_GET['issue_id'] ?? $_POST['issue_id'] ?? 0);
 $msg = '';
 $msg_type = 'danger';
 
+function e($value)
+{
+    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+}
+
 if ($issue_id <= 0) {
-    header("Location: recheck_issues.php");
+    header("Location: /safetrac/safety_officer/recheck_issues.php");
     exit;
 }
 
 $stmt = $conn->prepare("
-    SELECT i.issue_id, i.company_id, i.project_id, i.inspection_id, i.response_id,
-           i.issue_title, i.description, i.severity, i.assigned_to, i.due_date,
-           i.status, i.fixed_date, i.closed_date, i.reopened_count, i.last_rechecked_at, i.created_at,
-           p.project_name, p.site_name, p.location,
-           ins.inspection_date, ins.inspected_by,
-           su.full_name AS supervisor_name,
-           su.email AS supervisor_email
+    SELECT 
+        i.issue_id,
+        i.company_id,
+        i.project_id,
+        i.inspection_id,
+        i.response_id,
+        i.issue_code,
+        i.title,
+        i.description,
+        i.severity,
+        i.assigned_supervisor_id,
+        i.due_date,
+        i.status,
+        i.fixed_date,
+        i.closed_date,
+        i.reopened_count,
+        i.last_rechecked_at,
+        i.created_at,
+        p.project_name,
+        p.site_name,
+        p.location,
+        ins.inspection_date,
+        ins.conducted_by,
+        su.full_name AS supervisor_name,
+        su.email AS supervisor_email
     FROM issues i
     INNER JOIN inspections ins ON i.inspection_id = ins.inspection_id
     INNER JOIN projects p ON i.project_id = p.project_id
-    LEFT JOIN users su ON i.assigned_to = su.user_id
+    LEFT JOIN users su ON i.assigned_supervisor_id = su.user_id
     WHERE i.issue_id = ?
       AND i.company_id = ?
-      AND ins.inspected_by = ?
+      AND ins.conducted_by = ?
       AND i.status IN ('recheck_pending', 'reopened')
     LIMIT 1
 ");
@@ -43,30 +66,34 @@ $res = $stmt->get_result();
 $issue = $res->fetch_assoc();
 
 if (!$issue) {
-    header("Location: recheck_issues.php");
+    header("Location: /safetrac/safety_officer/recheck_issues.php");
     exit;
 }
 
 $before_photos = [];
-$bp = $conn->prepare("
-    SELECT file_id, file_name, file_path, file_label, created_at
-    FROM file_uploads
-    WHERE company_id = ?
-      AND module_name = 'inspection_response'
-      AND related_id = ?
-    ORDER BY file_id DESC
-");
 $response_id = (int)($issue['response_id'] ?? 0);
-$bp->bind_param("ii", $company_id, $response_id);
-$bp->execute();
-$bpres = $bp->get_result();
-while ($row = $bpres->fetch_assoc()) {
-    $before_photos[] = $row;
+
+if ($response_id > 0) {
+    $bp = $conn->prepare("
+        SELECT file_id, file_name, file_path, file_label, uploaded_at
+        FROM file_uploads
+        WHERE company_id = ?
+          AND module_name = 'inspection_response'
+          AND related_id = ?
+        ORDER BY file_id DESC
+    ");
+    $bp->bind_param("ii", $company_id, $response_id);
+    $bp->execute();
+    $bpres = $bp->get_result();
+
+    while ($row = $bpres->fetch_assoc()) {
+        $before_photos[] = $row;
+    }
 }
 
 $after_photos = [];
 $ap = $conn->prepare("
-    SELECT fu.file_id, fu.file_name, fu.file_path, fu.file_label, fu.created_at
+    SELECT fu.file_id, fu.file_name, fu.file_path, fu.file_label, fu.uploaded_at
     FROM file_uploads fu
     INNER JOIN issue_updates iu ON fu.related_id = iu.update_id
     WHERE fu.company_id = ?
@@ -77,6 +104,7 @@ $ap = $conn->prepare("
 $ap->bind_param("ii", $company_id, $issue_id);
 $ap->execute();
 $apres = $ap->get_result();
+
 while ($row = $apres->fetch_assoc()) {
     $after_photos[] = $row;
 }
@@ -86,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_recheck'])) {
     $comment_text   = trim($_POST['comment_text'] ?? '');
     $next_due_date  = trim($_POST['next_due_date'] ?? '');
 
-    if (!in_array($recheck_result, ['closed', 'reopened'])) {
+    if (!in_array($recheck_result, ['closed', 'reopened'], true)) {
         $msg = "Please select a valid recheck result.";
     } elseif ($comment_text === '') {
         $msg = "Comment is required.";
@@ -99,8 +127,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_recheck'])) {
 
         $ustmt = $conn->prepare("
             INSERT INTO issue_updates (
-                issue_id, updated_by, update_type, old_status, new_status,
-                action_taken, fixed_date, comment_text, recheck_result, next_due_date, created_at
+                issue_id,
+                updated_by,
+                update_type,
+                old_status,
+                new_status,
+                action_taken,
+                fixed_date,
+                comment_text,
+                recheck_result,
+                next_due_date,
+                created_at
             ) VALUES (?, ?, ?, ?, ?, '', NULL, ?, ?, ?, NOW())
         ");
         $ustmt->bind_param(
@@ -116,11 +153,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_recheck'])) {
         );
 
         if ($ustmt->execute()) {
-            $update_id = $ustmt->insert_id;
-
             $last_rechecked_at = date('Y-m-d H:i:s');
             $project_id = (int)$issue['project_id'];
-            $assigned_to = (int)$issue['assigned_to'];
+            $assigned_supervisor_id = (int)$issue['assigned_supervisor_id'];
 
             if ($recheck_result === 'closed') {
                 $closed_date = date('Y-m-d');
@@ -135,22 +170,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_recheck'])) {
                 $istmt->bind_param("ssii", $closed_date, $last_rechecked_at, $issue_id, $company_id);
                 $istmt->execute();
 
-                if ($assigned_to > 0) {
+                if ($assigned_supervisor_id > 0) {
                     $ntitle = "Issue Closed";
-                    $nmsg = "Issue #" . $issue_id . " has been verified and closed by Safety Officer.";
+                    $nmsg = "Issue " . ($issue['issue_code'] ?: '#' . $issue_id) . " has been verified and closed by Safety Officer.";
 
                     $nstmt = $conn->prepare("
-                        INSERT INTO notifications (company_id, user_id, title, message, type, is_read, created_at)
-                        VALUES (?, ?, ?, ?, 'issue_closed', 0, NOW())
+                        INSERT INTO notifications (
+                            company_id,
+                            user_id,
+                            title,
+                            message,
+                            related_table,
+                            related_id,
+                            is_read,
+                            created_at
+                        ) VALUES (?, ?, ?, ?, 'issues', ?, 0, NOW())
                     ");
-                    $nstmt->bind_param("iiss", $company_id, $assigned_to, $ntitle, $nmsg);
+                    $nstmt->bind_param("iissi", $company_id, $assigned_supervisor_id, $ntitle, $nmsg, $issue_id);
                     $nstmt->execute();
                 }
 
                 $log = $conn->prepare("
                     INSERT INTO activity_logs (
-                        company_id, project_id, user_id, module_name, related_id,
-                        action_type, action_description, ip_address, created_at
+                        company_id,
+                        project_id,
+                        user_id,
+                        module_name,
+                        related_id,
+                        action_type,
+                        action_description,
+                        ip_address,
+                        created_at
                     ) VALUES (?, ?, ?, 'issue', ?, 'close', ?, ?, NOW())
                 ");
                 $desc = "Safety Officer closed issue #" . $issue_id . " after recheck";
@@ -176,22 +226,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_recheck'])) {
                 $istmt->bind_param("issii", $reopened_count, $last_rechecked_at, $next_due_date, $issue_id, $company_id);
                 $istmt->execute();
 
-                if ($assigned_to > 0) {
+                if ($assigned_supervisor_id > 0) {
                     $ntitle = "Issue Reopened";
-                    $nmsg = "Issue #" . $issue_id . " was reopened by Safety Officer. Please take corrective action again. New due date: " . $next_due_date;
+                    $nmsg = "Issue " . ($issue['issue_code'] ?: '#' . $issue_id) . " was reopened by Safety Officer. New due date: " . $next_due_date;
 
                     $nstmt = $conn->prepare("
-                        INSERT INTO notifications (company_id, user_id, title, message, type, is_read, created_at)
-                        VALUES (?, ?, ?, ?, 'issue_reopened', 0, NOW())
+                        INSERT INTO notifications (
+                            company_id,
+                            user_id,
+                            title,
+                            message,
+                            related_table,
+                            related_id,
+                            is_read,
+                            created_at
+                        ) VALUES (?, ?, ?, ?, 'issues', ?, 0, NOW())
                     ");
-                    $nstmt->bind_param("iiss", $company_id, $assigned_to, $ntitle, $nmsg);
+                    $nstmt->bind_param("iissi", $company_id, $assigned_supervisor_id, $ntitle, $nmsg, $issue_id);
                     $nstmt->execute();
                 }
 
                 $log = $conn->prepare("
                     INSERT INTO activity_logs (
-                        company_id, project_id, user_id, module_name, related_id,
-                        action_type, action_description, ip_address, created_at
+                        company_id,
+                        project_id,
+                        user_id,
+                        module_name,
+                        related_id,
+                        action_type,
+                        action_description,
+                        ip_address,
+                        created_at
                     ) VALUES (?, ?, ?, 'issue', ?, 'reopen', ?, ?, NOW())
                 ");
                 $desc = "Safety Officer reopened issue #" . $issue_id . " after recheck";
@@ -204,20 +269,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_recheck'])) {
             }
 
             $stmt = $conn->prepare("
-                SELECT i.issue_id, i.company_id, i.project_id, i.inspection_id, i.response_id,
-                       i.issue_title, i.description, i.severity, i.assigned_to, i.due_date,
-                       i.status, i.fixed_date, i.closed_date, i.reopened_count, i.last_rechecked_at, i.created_at,
-                       p.project_name, p.site_name, p.location,
-                       ins.inspection_date, ins.inspected_by,
-                       su.full_name AS supervisor_name,
-                       su.email AS supervisor_email
+                SELECT 
+                    i.issue_id,
+                    i.company_id,
+                    i.project_id,
+                    i.inspection_id,
+                    i.response_id,
+                    i.issue_code,
+                    i.title,
+                    i.description,
+                    i.severity,
+                    i.assigned_supervisor_id,
+                    i.due_date,
+                    i.status,
+                    i.fixed_date,
+                    i.closed_date,
+                    i.reopened_count,
+                    i.last_rechecked_at,
+                    i.created_at,
+                    p.project_name,
+                    p.site_name,
+                    p.location,
+                    ins.inspection_date,
+                    ins.conducted_by,
+                    su.full_name AS supervisor_name,
+                    su.email AS supervisor_email
                 FROM issues i
                 INNER JOIN inspections ins ON i.inspection_id = ins.inspection_id
                 INNER JOIN projects p ON i.project_id = p.project_id
-                LEFT JOIN users su ON i.assigned_to = su.user_id
+                LEFT JOIN users su ON i.assigned_supervisor_id = su.user_id
                 WHERE i.issue_id = ?
                   AND i.company_id = ?
-                  AND ins.inspected_by = ?
+                  AND ins.conducted_by = ?
                 LIMIT 1
             ");
             $stmt->bind_param("iii", $issue_id, $company_id, $user_id);
@@ -232,9 +315,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_recheck'])) {
 
 $update_history = [];
 $hstmt = $conn->prepare("
-    SELECT iu.update_id, iu.update_type, iu.old_status, iu.new_status,
-           iu.action_taken, iu.fixed_date, iu.comment_text, iu.recheck_result, iu.next_due_date, iu.created_at,
-           u.full_name
+    SELECT 
+        iu.update_id,
+        iu.update_type,
+        iu.old_status,
+        iu.new_status,
+        iu.action_taken,
+        iu.fixed_date,
+        iu.comment_text,
+        iu.recheck_result,
+        iu.next_due_date,
+        iu.created_at,
+        u.full_name
     FROM issue_updates iu
     LEFT JOIN users u ON iu.updated_by = u.user_id
     WHERE iu.issue_id = ?
@@ -248,51 +340,46 @@ while ($row = $hres->fetch_assoc()) {
 }
 
 include '../includes/header.php';
+include '../includes/sidebar.php';
 ?>
 
-
-<?php include '../includes/sidebar.php'; ?>
 <?php if ($msg !== ''): ?>
-<div class="alert alert-<?= htmlspecialchars($msg_type); ?>"><?= htmlspecialchars($msg); ?></div>
+<div class="alert alert-<?= e($msg_type); ?>"><?= e($msg); ?></div>
 <?php endif; ?>
 
 <div class="card page-card p-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0">Recheck Issue</h4>
+        <a href="/safetrac/safety_officer/recheck_issues.php" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i> Back to Recheck Queue
+        </a>
+    </div>
+
     <div class="row g-4">
         <div class="col-md-8">
-            <h4 class="mb-3"><?= htmlspecialchars($issue['issue_title']); ?></h4>
+            <h4 class="mb-3"><?= e($issue['title']); ?></h4>
 
-            <div class="mb-2"><strong>Project:</strong> <?= htmlspecialchars($issue['project_name']); ?>
+            <div class="mb-2"><strong>Issue Code:</strong> <?= e($issue['issue_code'] ?: '-'); ?></div>
+            <div class="mb-2"><strong>Project:</strong> <?= e($issue['project_name']); ?></div>
+            <div class="mb-2"><strong>Site:</strong> <?= e($issue['site_name']); ?></div>
+            <div class="mb-2"><strong>Location:</strong> <?= e($issue['location']); ?></div>
+            <div class="mb-2"><strong>Description:</strong> <?= e($issue['description']); ?></div>
+            <div class="mb-2"><strong>Severity:</strong> <?= e($issue['severity']); ?></div>
+            <div class="mb-2"><strong>Status:</strong> <span class="badge bg-primary"><?= e($issue['status']); ?></span>
             </div>
-            <div class="mb-2"><strong>Site:</strong> <?= htmlspecialchars($issue['site_name']); ?></div>
-            <div class="mb-2"><strong>Location:</strong> <?= htmlspecialchars($issue['location']); ?>
-            </div>
-            <div class="mb-2"><strong>Description:</strong>
-                <?= htmlspecialchars($issue['description']); ?></div>
-            <div class="mb-2"><strong>Severity:</strong> <?= htmlspecialchars($issue['severity']); ?>
-            </div>
-            <div class="mb-2"><strong>Status:</strong> <span
-                    class="badge bg-primary"><?= htmlspecialchars($issue['status']); ?></span></div>
-            <div class="mb-2"><strong>Due Date:</strong>
-                <?= htmlspecialchars($issue['due_date'] ?: '-'); ?></div>
-            <div class="mb-2"><strong>Fixed Date:</strong>
-                <?= htmlspecialchars($issue['fixed_date'] ?: '-'); ?></div>
-            <div class="mb-2"><strong>Reopened Count:</strong> <?= (int)$issue['reopened_count']; ?>
-            </div>
-            <div class="mb-0"><strong>Supervisor:</strong>
-                <?= htmlspecialchars($issue['supervisor_name'] ?: '-'); ?></div>
+            <div class="mb-2"><strong>Due Date:</strong> <?= e($issue['due_date'] ?: '-'); ?></div>
+            <div class="mb-2"><strong>Fixed Date:</strong> <?= e($issue['fixed_date'] ?: '-'); ?></div>
+            <div class="mb-2"><strong>Reopened Count:</strong> <?= (int)$issue['reopened_count']; ?></div>
+            <div class="mb-0"><strong>Supervisor:</strong> <?= e($issue['supervisor_name'] ?: '-'); ?></div>
         </div>
 
         <div class="col-md-4">
             <div class="border rounded p-3 bg-light">
                 <h6 class="mb-3">Status Summary</h6>
-                <div class="mb-2"><strong>Inspection Date:</strong>
-                    <?= htmlspecialchars($issue['inspection_date'] ?: '-'); ?></div>
-                <div class="mb-2"><strong>Created:</strong>
-                    <?= htmlspecialchars($issue['created_at']); ?></div>
-                <div class="mb-2"><strong>Last Rechecked:</strong>
-                    <?= htmlspecialchars($issue['last_rechecked_at'] ?: '-'); ?></div>
-                <div class="mb-0"><strong>Closed Date:</strong>
-                    <?= htmlspecialchars($issue['closed_date'] ?: '-'); ?></div>
+                <div class="mb-2"><strong>Inspection Date:</strong> <?= e($issue['inspection_date'] ?: '-'); ?></div>
+                <div class="mb-2"><strong>Created:</strong> <?= e($issue['created_at']); ?></div>
+                <div class="mb-2"><strong>Last Rechecked:</strong> <?= e($issue['last_rechecked_at'] ?: '-'); ?></div>
+                <div class="mb-0"><strong>Closed Date:</strong> <?= e($issue['closed_date'] ?: '-'); ?></div>
             </div>
         </div>
     </div>
@@ -309,9 +396,9 @@ include '../includes/header.php';
                 <?php foreach ($before_photos as $photo): ?>
                 <div class="col-md-6">
                     <div class="border rounded p-2">
-                        <img src="../<?= htmlspecialchars($photo['file_path']); ?>" alt="Before Photo"
+                        <img src="../<?= e($photo['file_path']); ?>" alt="Before Photo"
                             class="img-fluid rounded border">
-                        <small class="text-muted d-block mt-2"><?= htmlspecialchars($photo['file_name']); ?></small>
+                        <small class="text-muted d-block mt-2"><?= e($photo['file_name']); ?></small>
                     </div>
                 </div>
                 <?php endforeach; ?>
@@ -328,9 +415,8 @@ include '../includes/header.php';
                 <?php foreach ($after_photos as $photo): ?>
                 <div class="col-md-6">
                     <div class="border rounded p-2">
-                        <img src="../<?= htmlspecialchars($photo['file_path']); ?>" alt="After Photo"
-                            class="img-fluid rounded border">
-                        <small class="text-muted d-block mt-2"><?= htmlspecialchars($photo['file_name']); ?></small>
+                        <img src="../<?= e($photo['file_path']); ?>" alt="After Photo" class="img-fluid rounded border">
+                        <small class="text-muted d-block mt-2"><?= e($photo['file_name']); ?></small>
                     </div>
                 </div>
                 <?php endforeach; ?>
@@ -401,16 +487,15 @@ include '../includes/header.php';
                 <?php foreach ($update_history as $history): ?>
                 <tr>
                     <td>#<?= (int)$history['update_id']; ?></td>
-                    <td><?= htmlspecialchars($history['full_name'] ?: '-'); ?></td>
-                    <td><?= htmlspecialchars($history['update_type']); ?></td>
-                    <td><?= htmlspecialchars($history['old_status'] . ' → ' . $history['new_status']); ?>
-                    </td>
-                    <td><?= htmlspecialchars($history['action_taken'] ?: '-'); ?></td>
-                    <td><?= htmlspecialchars($history['fixed_date'] ?: '-'); ?></td>
-                    <td><?= htmlspecialchars($history['comment_text'] ?: '-'); ?></td>
-                    <td><?= htmlspecialchars($history['recheck_result'] ?: '-'); ?></td>
-                    <td><?= htmlspecialchars($history['next_due_date'] ?: '-'); ?></td>
-                    <td><?= htmlspecialchars($history['created_at']); ?></td>
+                    <td><?= e($history['full_name'] ?: '-'); ?></td>
+                    <td><?= e($history['update_type']); ?></td>
+                    <td><?= e(($history['old_status'] ?: '-') . ' → ' . ($history['new_status'] ?: '-')); ?></td>
+                    <td><?= e($history['action_taken'] ?: '-'); ?></td>
+                    <td><?= e($history['fixed_date'] ?: '-'); ?></td>
+                    <td><?= e($history['comment_text'] ?: '-'); ?></td>
+                    <td><?= e($history['recheck_result'] ?: '-'); ?></td>
+                    <td><?= e($history['next_due_date'] ?: '-'); ?></td>
+                    <td><?= e($history['created_at']); ?></td>
                 </tr>
                 <?php endforeach; ?>
                 <?php else: ?>
@@ -421,12 +506,6 @@ include '../includes/header.php';
             </tbody>
         </table>
     </div>
-
-</div>
-
-</div>
-</div>
-</div>
 </div>
 
 <script>

@@ -14,35 +14,47 @@ $status_filter = trim($_GET['status'] ?? '');
 $search        = trim($_GET['search'] ?? '');
 
 $sql = "
-    SELECT i.issue_id, i.project_id, i.inspection_id, i.issue_title, i.description,
-           i.severity, i.due_date, i.status, i.fixed_date, i.created_at,
-           p.project_name, p.site_name,
-           ins.inspection_date,
-           u.full_name AS safety_officer_name
+    SELECT 
+        i.issue_id,
+        i.project_id,
+        i.inspection_id,
+        i.issue_code,
+        i.title,
+        i.description,
+        i.severity,
+        i.due_date,
+        i.status,
+        i.fixed_date,
+        i.created_at,
+        p.project_name,
+        p.site_name,
+        ins.inspection_date,
+        u.full_name AS safety_officer_name
     FROM issues i
     INNER JOIN projects p ON i.project_id = p.project_id
     LEFT JOIN inspections ins ON i.inspection_id = ins.inspection_id
-    LEFT JOIN users u ON ins.inspected_by = u.user_id
+    LEFT JOIN users u ON ins.conducted_by = u.user_id
     WHERE i.company_id = ?
-      AND i.assigned_to = ?
+      AND i.assigned_supervisor_id = ?
 ";
 $params = [$company_id, $user_id];
 $types  = "ii";
 
-if ($status_filter !== '' && in_array($status_filter, ['open','in_progress','recheck_pending','reopened','overdue','closed'])) {
+if ($status_filter !== '' && in_array($status_filter, ['open', 'in_progress', 'recheck_pending', 'reopened', 'overdue', 'closed'], true)) {
     $sql .= " AND i.status = ? ";
     $params[] = $status_filter;
     $types .= "s";
 }
 
 if ($search !== '') {
-    $sql .= " AND (i.issue_title LIKE ? OR i.description LIKE ? OR p.project_name LIKE ? OR p.site_name LIKE ?) ";
+    $sql .= " AND (i.title LIKE ? OR i.description LIKE ? OR p.project_name LIKE ? OR p.site_name LIKE ? OR i.issue_code LIKE ?) ";
     $like = "%" . $search . "%";
     $params[] = $like;
     $params[] = $like;
     $params[] = $like;
     $params[] = $like;
-    $types .= "ssss";
+    $params[] = $like;
+    $types .= "sssss";
 }
 
 $sql .= " ORDER BY 
@@ -67,8 +79,9 @@ while ($row = $res->fetch_assoc()) {
 }
 
 include '../includes/header.php';
+include '../includes/sidebar.php';
 ?>
-<?php include '../includes/sidebar.php'; ?>
+
 <div class="card page-card p-4 mb-4">
     <form method="GET" class="row g-3 align-items-end">
         <div class="col-md-3">
@@ -76,24 +89,21 @@ include '../includes/header.php';
             <select name="status" class="form-select">
                 <option value="">All Statuses</option>
                 <option value="open" <?= $status_filter === 'open' ? 'selected' : ''; ?>>Open</option>
-                <option value="in_progress" <?= $status_filter === 'in_progress' ? 'selected' : ''; ?>>
-                    In Progress</option>
+                <option value="in_progress" <?= $status_filter === 'in_progress' ? 'selected' : ''; ?>>In Progress
+                </option>
                 <option value="recheck_pending" <?= $status_filter === 'recheck_pending' ? 'selected' : ''; ?>>Recheck
-                    Pending
-                </option>
-                <option value="reopened" <?= $status_filter === 'reopened' ? 'selected' : ''; ?>>
-                    Reopened</option>
-                <option value="overdue" <?= $status_filter === 'overdue' ? 'selected' : ''; ?>>Overdue
-                </option>
-                <option value="closed" <?= $status_filter === 'closed' ? 'selected' : ''; ?>>Closed
-                </option>
+                    Pending</option>
+                <option value="reopened" <?= $status_filter === 'reopened' ? 'selected' : ''; ?>>Reopened</option>
+                <option value="overdue" <?= $status_filter === 'overdue' ? 'selected' : ''; ?>>Overdue</option>
+                <option value="closed" <?= $status_filter === 'closed' ? 'selected' : ''; ?>>Closed</option>
             </select>
         </div>
 
         <div class="col-md-6">
             <label class="form-label">Search</label>
-            <input type="text" name="search" class="form-control" value="<?= htmlspecialchars($search); ?>"
-                placeholder="Search by issue, description, project or site">
+            <input type="text" name="search" class="form-control"
+                value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8'); ?>"
+                placeholder="Search by issue, description, project, site or issue code">
         </div>
 
         <div class="col-md-3">
@@ -113,6 +123,7 @@ include '../includes/header.php';
             <thead>
                 <tr>
                     <th>ID</th>
+                    <th>Code</th>
                     <th>Project</th>
                     <th>Issue</th>
                     <th>Severity</th>
@@ -127,53 +138,62 @@ include '../includes/header.php';
                 <?php if (!empty($issues)): ?>
                 <?php foreach ($issues as $issue): ?>
                 <?php
-                                        $severity = strtolower((string)$issue['severity']);
-                                        $severityClass = 'secondary';
-                                        if ($severity === 'low') $severityClass = 'success';
-                                        elseif ($severity === 'medium') $severityClass = 'warning';
-                                        elseif ($severity === 'high') $severityClass = 'danger';
-                                        elseif ($severity === 'critical') $severityClass = 'dark';
+                        $severity = strtolower((string)$issue['severity']);
+                        $severityClass = 'secondary';
+                        if ($severity === 'low') $severityClass = 'success';
+                        elseif ($severity === 'medium') $severityClass = 'warning';
+                        elseif ($severity === 'high') $severityClass = 'danger';
+                        elseif ($severity === 'critical') $severityClass = 'dark';
 
-                                        $status = strtolower((string)$issue['status']);
-                                        $statusClass = 'secondary';
-                                        if ($status === 'open') $statusClass = 'primary';
-                                        elseif ($status === 'in_progress') $statusClass = 'info';
-                                        elseif ($status === 'recheck_pending') $statusClass = 'warning';
-                                        elseif ($status === 'reopened') $statusClass = 'danger';
-                                        elseif ($status === 'overdue') $statusClass = 'danger';
-                                        elseif ($status === 'closed') $statusClass = 'success';
+                        $status = strtolower((string)$issue['status']);
+                        $statusClass = 'secondary';
+                        if ($status === 'open') $statusClass = 'primary';
+                        elseif ($status === 'in_progress') $statusClass = 'info';
+                        elseif ($status === 'recheck_pending') $statusClass = 'warning';
+                        elseif ($status === 'reopened') $statusClass = 'danger';
+                        elseif ($status === 'overdue') $statusClass = 'danger';
+                        elseif ($status === 'closed') $statusClass = 'success';
 
-                                        $is_overdue = false;
-                                        if (!empty($issue['due_date']) && $issue['status'] !== 'closed') {
-                                            $is_overdue = (strtotime($issue['due_date']) < strtotime(date('Y-m-d')));
-                                        }
-                                        ?>
+                        $is_overdue = false;
+                        if (!empty($issue['due_date']) && $issue['status'] !== 'closed') {
+                            $is_overdue = (strtotime($issue['due_date']) < strtotime(date('Y-m-d')));
+                        }
+                        ?>
                 <tr class="<?= $is_overdue ? 'table-danger' : ''; ?>">
                     <td>#<?= (int)$issue['issue_id']; ?></td>
+                    <td><?= htmlspecialchars($issue['issue_code'] ?: '-', ENT_QUOTES, 'UTF-8'); ?></td>
                     <td>
-                        <div class="fw-semibold"><?= htmlspecialchars($issue['project_name']); ?></div>
-                        <small class="text-muted"><?= htmlspecialchars($issue['site_name']); ?></small>
+                        <div class="fw-semibold"><?= htmlspecialchars($issue['project_name'], ENT_QUOTES, 'UTF-8'); ?>
+                        </div>
+                        <small
+                            class="text-muted"><?= htmlspecialchars($issue['site_name'], ENT_QUOTES, 'UTF-8'); ?></small>
                     </td>
                     <td>
-                        <div class="fw-semibold"><?= htmlspecialchars($issue['issue_title']); ?></div>
-                        <small class="text-muted"><?= htmlspecialchars($issue['description']); ?></small>
+                        <div class="fw-semibold"><?= htmlspecialchars($issue['title'], ENT_QUOTES, 'UTF-8'); ?></div>
+                        <small
+                            class="text-muted"><?= htmlspecialchars($issue['description'] ?: '-', ENT_QUOTES, 'UTF-8'); ?></small>
                     </td>
-                    <td><span
-                            class="badge bg-<?= $severityClass; ?>"><?= htmlspecialchars($issue['severity']); ?></span>
-                    </td>
-                    <td><?= htmlspecialchars($issue['inspection_date'] ?: '-'); ?></td>
                     <td>
-                        <?= htmlspecialchars($issue['due_date'] ?: '-'); ?>
+                        <span class="badge bg-<?= $severityClass; ?>">
+                            <?= htmlspecialchars($issue['severity'], ENT_QUOTES, 'UTF-8'); ?>
+                        </span>
+                    </td>
+                    <td><?= htmlspecialchars($issue['inspection_date'] ?: '-', ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td>
+                        <?= htmlspecialchars($issue['due_date'] ?: '-', ENT_QUOTES, 'UTF-8'); ?>
                         <?php if ($is_overdue): ?>
                         <br><small class="text-danger fw-semibold">Overdue</small>
                         <?php endif; ?>
                     </td>
-                    <td><span class="badge bg-<?= $statusClass; ?>"><?= htmlspecialchars($issue['status']); ?></span>
+                    <td>
+                        <span class="badge bg-<?= $statusClass; ?>">
+                            <?= htmlspecialchars($issue['status'], ENT_QUOTES, 'UTF-8'); ?>
+                        </span>
                     </td>
-                    <td><?= htmlspecialchars($issue['safety_officer_name'] ?: '-'); ?></td>
+                    <td><?= htmlspecialchars($issue['safety_officer_name'] ?: '-', ENT_QUOTES, 'UTF-8'); ?></td>
                     <td>
                         <?php if ($issue['status'] !== 'closed'): ?>
-                        <a href="issue_update.php?issue_id=<?= (int)$issue['issue_id']; ?>"
+                        <a href="/safetrac/supervisor/issue_update.php?issue_id=<?= (int)$issue['issue_id']; ?>"
                             class="btn btn-sm btn-outline-primary">
                             Update Issue
                         </a>
@@ -185,18 +205,12 @@ include '../includes/header.php';
                 <?php endforeach; ?>
                 <?php else: ?>
                 <tr>
-                    <td colspan="9" class="text-center text-muted">No assigned issues found.</td>
+                    <td colspan="10" class="text-center text-muted">No assigned issues found.</td>
                 </tr>
                 <?php endif; ?>
             </tbody>
         </table>
     </div>
-
-</div>
-
-</div>
-</div>
-</div>
 </div>
 
 <?php include '../includes/footer.php'; ?>
