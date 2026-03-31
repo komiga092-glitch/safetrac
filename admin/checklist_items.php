@@ -419,7 +419,6 @@ include '../includes/sidebar.php';
         <table class="table align-middle">
             <thead>
                 <tr>
-                    <th>ID</th>
                     <th>Category</th>
                     <th>Code</th>
                     <th>Item Text</th>
@@ -443,7 +442,6 @@ include '../includes/sidebar.php';
                         if ($item['default_severity'] === 'Critical') $sev_badge = 'dark';
                         ?>
                 <tr>
-                    <td>#<?= (int)$item['item_id']; ?></td>
                     <td><?= e($item['category_name']); ?></td>
                     <td><?= e($item['item_code'] ?: '-'); ?></td>
                     <td style="min-width: 280px;"><?= e($item['item_text']); ?></td>
@@ -475,7 +473,7 @@ include '../includes/sidebar.php';
                 <?php endforeach; ?>
                 <?php else: ?>
                 <tr>
-                    <td colspan="10" class="text-center text-muted">No checklist items found.</td>
+                    <td colspan="9" class="text-center text-muted">No checklist items found.</td>
                 </tr>
                 <?php endif; ?>
             </tbody>
