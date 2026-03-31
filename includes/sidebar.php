@@ -8,7 +8,6 @@ $current_page = basename((string)($_SERVER['PHP_SELF'] ?? ''));
 $full_name = trim((string)($_SESSION['full_name'] ?? 'User'));
 
 $role_label = ucwords(str_replace('_', ' ', $role));
-
 $sidebar_unread_count = 0;
 
 if (isset($conn) && $conn instanceof mysqli && isset($_SESSION['user_id'], $_SESSION['company_id'])) {
@@ -44,6 +43,13 @@ if (isset($conn) && $conn instanceof mysqli && isset($_SESSION['user_id'], $_SES
     </div>
 
     <div class="topbar-right">
+        <a href="/safetrac/notifications.php" class="topbar-notification" aria-label="Notifications">
+            <i class="bi bi-bell"></i>
+            <?php if ($sidebar_unread_count > 0): ?>
+            <span class="topbar-badge"><?= $sidebar_unread_count; ?></span>
+            <?php endif; ?>
+        </a>
+
         <div class="topbar-user">
             Hello, <strong><?= htmlspecialchars($full_name, ENT_QUOTES, 'UTF-8'); ?></strong>
         </div>
@@ -58,7 +64,7 @@ if (isset($conn) && $conn instanceof mysqli && isset($_SESSION['user_id'], $_SES
 
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-head">
-        <h5 class="sidebar-title mb-0">SafeTrack Safety</h5>
+        <h5 class="sidebar-title">SafeTrack Safety</h5>
         <div class="sidebar-subtitle">Professional Safety Management</div>
     </div>
 
@@ -152,15 +158,6 @@ if (isset($conn) && $conn instanceof mysqli && isset($_SESSION['user_id'], $_SES
 
     <div class="menu-section-title">Common</div>
 
-    <a class="nav-link <?= $current_page === 'notifications.php' ? 'active' : ''; ?>"
-        href="/safetrac/notifications.php">
-        <i class="bi bi-bell"></i>
-        <span>Notifications</span>
-        <?php if ($sidebar_unread_count > 0): ?>
-        <span class="sidebar-badge"><?= $sidebar_unread_count; ?></span>
-        <?php endif; ?>
-    </a>
-
     <a class="nav-link" href="/safetrac/logout.php">
         <i class="bi bi-box-arrow-right"></i>
         <span>Logout</span>
@@ -172,4 +169,4 @@ if (isset($conn) && $conn instanceof mysqli && isset($_SESSION['user_id'], $_SES
     </div>
 </aside>
 
-<div class="main-content">
+<main class="main-content">

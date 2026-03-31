@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (!failBlock) return;
 
-    if (value === "Fail") {
+    if (value === "No" || value === "Fail") {
       failBlock.style.display = "block";
       failInputs.forEach(function (input) {
         input.setAttribute("required", "required");

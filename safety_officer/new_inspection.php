@@ -178,10 +178,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_inspection'])) {
             $item_id = (int)$item_id;
             $value = trim((string)$value);
 
-            if ($value === 'Pass') {
+            if ($value === 'Yes') {
                 $pass_count++;
                 $total_valid++;
-            } elseif ($value === 'Fail') {
+            } elseif ($value === 'No') {
                 $fail_count++;
                 $total_valid++;
 
@@ -252,7 +252,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_inspection'])) {
                     $item_id = (int)$item_id;
                     $value   = trim((string)$value);
 
-                    if (!in_array($value, ['Pass', 'Fail', 'NA'], true)) {
+                    if (!in_array($value, ['Yes', 'No', 'NA'], true)) {
                         continue;
                     }
 
@@ -261,7 +261,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_inspection'])) {
                     $supervisor = (int)($_POST['assigned_supervisor_id'][$item_id] ?? 0);
                     $due_date   = trim($_POST['due_date'][$item_id] ?? '');
 
-                    if ($value !== 'Fail') {
+                    if ($value !== 'No') {
                         $note = '';
                         $severity = null;
                         $supervisor = null;
@@ -271,7 +271,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_inspection'])) {
                     $response_status = 'submitted';
                     $is_issue_created = 0;
                     $issue_created_at = null;
-                    $photo_required = ($value === 'Fail') ? 1 : 0;
+                    $photo_required = ($value === 'No') ? 1 : 0;
 
                     $rstmt = $conn->prepare("
                         INSERT INTO inspection_responses (
@@ -307,7 +307,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_inspection'])) {
 
                     $response_id = (int)$rstmt->insert_id;
 
-                    if ($value === 'Fail') {
+                    if ($value === 'No') {
                         $beforePhotoPath = '';
                         $uploadedFileName = '';
 
@@ -579,11 +579,11 @@ include '../includes/sidebar.php';
                 <label class="checklist-option">
                     <input type="radio" name="response_value[<?= $item_id; ?>]"
                         id="response_pass_<?= $item_id; ?>"
-                        value="Pass"
+                        value="Yes"
                         data-item="<?= $item_id; ?>"
                         class="response-select"
                         required
-                        <?= (($_POST['response_value'][$item_id] ?? '') === 'Pass') ? 'checked' : ''; ?> />
+                        <?= (($_POST['response_value'][$item_id] ?? '') === 'Yes') ? 'checked' : ''; ?> />
                     <span class="option-label"></span>
                 </label>
             </td>
@@ -591,10 +591,10 @@ include '../includes/sidebar.php';
                 <label class="checklist-option">
                     <input type="radio" name="response_value[<?= $item_id; ?>]"
                         id="response_fail_<?= $item_id; ?>"
-                        value="Fail"
+                        value="No"
                         data-item="<?= $item_id; ?>"
                         class="response-select"
-                        <?= (($_POST['response_value'][$item_id] ?? '') === 'Fail') ? 'checked' : ''; ?> />
+                        <?= (($_POST['response_value'][$item_id] ?? '') === 'No') ? 'checked' : ''; ?> />
                     <span class="option-label"></span>
                 </label>
             </td>

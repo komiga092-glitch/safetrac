@@ -1,30 +1,45 @@
 ﻿:root {
   --sidebar-width: 260px;
   --topbar-height: 64px;
+
   --primary: #0b1f3a;
   --secondary: #163a63;
   --accent: #f97316;
+
   --danger: #dc2626;
   --success: #16a34a;
   --warning: #f59e0b;
   --info: #0ea5e9;
+
   --bg: #f4f7fb;
   --white: #ffffff;
   --text: #0f172a;
   --muted: #64748b;
+
   --border-light: #e5e7eb;
   --border: rgba(255, 255, 255, 0.08);
+
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-xl: 30px;
+
   --shadow-soft: 0 12px 30px rgba(15, 23, 42, 0.08);
   --shadow-medium: 0 10px 24px rgba(0, 0, 0, 0.14);
+
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.28s ease;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
 html,
 body {
-  height: 100%;
+  min-height: 100%;
 }
 
 body {
@@ -33,6 +48,7 @@ body {
   font-family: "Segoe UI", sans-serif;
   color: var(--text);
   overflow-x: hidden;
+  line-height: 1.5;
 }
 
 body.sidebar-open {
@@ -41,10 +57,19 @@ body.sidebar-open {
 
 img {
   max-width: 100%;
+  display: block;
 }
 
 a {
   text-decoration: none;
+  color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
 .table td,
@@ -52,9 +77,11 @@ a {
   vertical-align: middle;
 }
 
-/* =========================
-   TOPBAR
-========================= */
+:focus-visible {
+  outline: 3px solid rgba(14, 165, 233, 0.25);
+  outline-offset: 2px;
+}
+
 .topbar {
   position: fixed;
   top: 0;
@@ -75,6 +102,7 @@ a {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 0.3px;
@@ -89,28 +117,65 @@ a {
 .topbar-user {
   font-size: 14px;
   color: #e2e8f0;
+  white-space: nowrap;
 }
 
 .menu-toggle {
   display: none;
+  align-items: center;
+  justify-content: center;
   border: none;
   background: rgba(255, 255, 255, 0.12);
   color: var(--white);
   width: 42px;
   height: 42px;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   font-size: 20px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    background var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.topbar-notification {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--white);
+  text-decoration: none;
+}
+
+.topbar-notification:hover,
+.topbar-notification:focus {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.topbar-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  color: var(--white);
+  background: var(--danger);
 }
 
 .menu-toggle:hover {
   background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
 }
 
-/* =========================
-   SIDEBAR
-========================= */
 .sidebar {
   position: fixed;
   top: var(--topbar-height);
@@ -123,8 +188,9 @@ a {
   overflow-x: hidden;
   z-index: 1050;
   padding: 18px 14px 20px;
-  transition: transform 0.28s ease;
+  transition: transform var(--transition-normal);
   box-shadow: 8px 0 24px rgba(2, 6, 23, 0.12);
+  -webkit-overflow-scrolling: touch;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -143,15 +209,15 @@ a {
 }
 
 .sidebar-title {
+  margin: 0;
   font-size: 18px;
   font-weight: 700;
-  margin: 0;
 }
 
 .sidebar-subtitle {
+  margin-top: 4px;
   font-size: 13px;
   color: #cbd5e1;
-  margin-top: 4px;
 }
 
 .menu-section-title {
@@ -172,7 +238,11 @@ a {
   border-radius: 14px;
   margin-bottom: 8px;
   font-weight: 500;
-  transition: all 0.22s ease;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
   position: relative;
   overflow: hidden;
 }
@@ -192,8 +262,8 @@ a {
 .sidebar .nav-link.active {
   background: linear-gradient(
     90deg,
-    rgba(249, 115, 22, 0.95),
-    rgba(249, 115, 22, 0.75)
+    rgba(249, 115, 22, 0.96),
+    rgba(249, 115, 22, 0.78)
   );
   color: var(--white);
   box-shadow: 0 8px 18px rgba(249, 115, 22, 0.22);
@@ -223,6 +293,7 @@ a {
   justify-content: center;
   padding: 0 6px;
   font-weight: 700;
+  line-height: 1;
 }
 
 .sidebar-footer {
@@ -234,18 +305,30 @@ a {
 }
 
 .sidebar-overlay {
-  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.45);
+  z-index: 1040;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--transition-fast),
+    visibility var(--transition-fast);
 }
 
-/* =========================
-   MAIN CONTENT
-========================= */
+.sidebar-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
 .main-content {
   margin-left: var(--sidebar-width);
   margin-top: var(--topbar-height);
   min-height: calc(100vh - var(--topbar-height));
   padding: 24px;
-  transition: margin-left 0.28s ease;
+  transition:
+    margin-left var(--transition-normal),
+    padding var(--transition-normal);
 }
 
 .page-heading {
@@ -256,7 +339,7 @@ a {
 .page-heading h2,
 .page-heading h3,
 .page-heading h4 {
-  margin-bottom: 6px;
+  margin: 0 0 6px;
   font-weight: 700;
   color: var(--primary);
 }
@@ -266,9 +349,6 @@ a {
   color: var(--muted);
 }
 
-/* =========================
-   CARDS
-========================= */
 .page-card,
 .chart-card,
 .project-mini-card,
@@ -276,10 +356,12 @@ a {
 .landing-feature-card,
 .workflow-card,
 .role-box,
-.landing-content-card {
+.landing-content-card,
+.report-card,
+.auth-card {
   background: var(--white);
   border: none;
-  border-radius: 22px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
 }
 
@@ -297,7 +379,7 @@ a {
 }
 
 .stat-card h6 {
-  margin-bottom: 10px;
+  margin: 0 0 10px;
   font-weight: 600;
   opacity: 0.95;
 }
@@ -324,9 +406,6 @@ a {
   background: linear-gradient(135deg, #b91c1c, #dc2626);
 }
 
-/* =========================
-   BUTTONS + FORMS
-========================= */
 .btn-main {
   background: linear-gradient(120deg, #0b1f3a, #163a63);
   border: none;
@@ -334,13 +413,25 @@ a {
   font-weight: 600;
   border-radius: 12px;
   padding: 11px 16px;
-  transition: all 0.2s ease;
+  transition:
+    transform var(--transition-fast),
+    opacity var(--transition-fast),
+    box-shadow var(--transition-fast);
+  box-shadow: 0 8px 18px rgba(11, 31, 58, 0.18);
 }
 
 .btn-main:hover,
 .btn-main:focus {
   color: var(--white);
-  opacity: 0.96;
+  opacity: 0.98;
+  transform: translateY(-1px);
+}
+
+.btn-main:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .form-control,
@@ -350,6 +441,79 @@ textarea.form-control {
   padding: 12px 14px;
   border: 1px solid #dbe2ea;
   box-shadow: none;
+  background: #fff;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.form-control:focus,
+.form-select:focus,
+textarea.form-control:focus {
+  border-color: #7aa2d1;
+  box-shadow: 0 0 0 0.2rem rgba(22, 58, 99, 0.12);
+}
+
+.form-control,
+.form-select,
+textarea.form-control {
+  border-radius: 12px;
+  padding: 12px 14px;
+  border: 1px solid #dbe2ea;
+  box-shadow: none;
+  background: #fff;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+  width: 100%;
+}
+
+.form-label {
+  display: block;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 8px;
+}
+
+form label,
+form .form-control,
+form .form-select,
+form textarea,
+form .form-check,
+form .form-check-input,
+form .form-check-label {
+  display: block !important;
+  width: 100% !important;
+}
+
+form label::after,
+form .form-control::after,
+form .form-select::after,
+form textarea::after,
+form .form-check::after,
+form .form-check-input::after,
+form .form-check-label::after {
+  content: "";
+  display: block;
+  height: 0;
+}
+
+/* Stack form fields vertically */
+form .row,
+form .form-row {
+  display: block !important;
+}
+
+form [class*="col-"] {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  flex: 0 0 100% !important;
+}
+
+.small-muted {
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .checklist-heading {
@@ -409,7 +573,11 @@ textarea.form-control {
   border: none;
   background: transparent;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform var(--transition-fast);
+}
+
+.checklist-option:hover {
+  transform: translateY(-1px);
 }
 
 .checklist-option:hover .option-label {
@@ -431,7 +599,7 @@ textarea.form-control {
   border-radius: 50%;
   border: 1px solid #cbd5e1;
   background: #fff;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast);
   position: relative;
 }
 
@@ -443,7 +611,7 @@ textarea.form-control {
   border-radius: 50%;
   background: #fff;
   opacity: 0;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast);
 }
 
 .checklist-option input:checked + .option-label {
@@ -507,30 +675,6 @@ textarea.form-control {
   color: #0f172a;
 }
 
-.checklist-item .form-label {
-  margin-bottom: 8px;
-}
-
-.form-control:focus,
-.form-select:focus,
-textarea.form-control:focus {
-  border-color: #7aa2d1;
-  box-shadow: 0 0 0 0.2rem rgba(22, 58, 99, 0.12);
-}
-
-.form-label {
-  font-weight: 600;
-  color: #334155;
-}
-
-.small-muted {
-  color: var(--muted);
-  font-size: 14px;
-}
-
-/* =========================
-   TABLES + BADGES
-========================= */
 .table {
   margin-bottom: 0;
 }
@@ -558,9 +702,6 @@ textarea.form-control:focus {
   --bs-table-bg: #fff1f2;
 }
 
-/* =========================
-   AUTH
-========================= */
 .auth-wrap {
   min-height: 100vh;
   display: flex;
@@ -576,8 +717,6 @@ textarea.form-control:focus {
 .auth-card {
   width: 100%;
   max-width: 460px;
-  border: none;
-  border-radius: 22px;
   overflow: hidden;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
 }
@@ -594,9 +733,6 @@ textarea.form-control:focus {
   padding: 28px;
 }
 
-/* =========================
-   DASHBOARD METER + CHARTS
-========================= */
 .needle-meter-card {
   overflow: hidden;
 }
@@ -612,6 +748,7 @@ textarea.form-control:focus {
   position: relative;
   width: 340px;
   height: 220px;
+  max-width: 100%;
 }
 
 .gauge-svg,
@@ -761,6 +898,7 @@ textarea.form-control:focus {
   position: relative;
   width: 190px;
   height: 120px;
+  max-width: 100%;
 }
 
 .mini-gauge-needle {
@@ -836,9 +974,6 @@ textarea.form-control:focus {
   height: 320px;
 }
 
-/* =========================
-   REPORT PAGES
-========================= */
 .report-wrap {
   max-width: 1280px;
   margin: 30px auto;
@@ -846,9 +981,6 @@ textarea.form-control:focus {
 }
 
 .report-card {
-  background: var(--white);
-  border-radius: 18px;
-  box-shadow: var(--shadow-soft);
   padding: 24px;
 }
 
@@ -861,9 +993,6 @@ textarea.form-control:focus {
   color: var(--muted);
 }
 
-/* =========================
-   LANDING PAGE
-========================= */
 .landing-navbar {
   background: rgba(11, 31, 58, 0.96);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
@@ -931,11 +1060,11 @@ textarea.form-control:focus {
 
 .hero-mini-card h5 {
   font-weight: 700;
-  margin-bottom: 10px;
+  margin: 0 0 10px;
 }
 
 .hero-mini-card p {
-  margin-bottom: 0;
+  margin: 0;
   color: #e2e8f0;
   font-size: 14px;
 }
@@ -996,7 +1125,6 @@ textarea.form-control:focus {
   height: 100%;
   min-height: 280px;
   object-fit: cover;
-  display: block;
 }
 
 .landing-content-card {
@@ -1017,12 +1145,12 @@ textarea.form-control:focus {
 }
 
 .feature-line h5 {
-  margin-bottom: 6px;
+  margin: 0 0 6px;
   font-weight: 700;
 }
 
 .feature-line p {
-  margin-bottom: 0;
+  margin: 0;
   color: var(--muted);
 }
 
@@ -1045,22 +1173,26 @@ textarea.form-control:focus {
 }
 
 .workflow-card h5 {
+  margin: 0 0 8px;
   font-weight: 700;
 }
 
 .workflow-card p {
   color: var(--muted);
-  margin-bottom: 0;
+  margin: 0;
 }
 
 .landing-feature-card {
   padding: 26px;
   height: 100%;
-  transition: all 0.25s ease;
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .landing-feature-card:hover {
   transform: translateY(-6px);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
 }
 
 .landing-feature-icon {
@@ -1077,19 +1209,18 @@ textarea.form-control:focus {
 }
 
 .landing-feature-card h5 {
+  margin: 0 0 10px;
   font-weight: 700;
-  margin-bottom: 10px;
 }
 
 .landing-feature-card p {
-  margin-bottom: 0;
+  margin: 0;
   color: var(--muted);
 }
 
 .role-box {
   overflow: hidden;
   height: 100%;
-  background: var(--white);
 }
 
 .role-box-head {
@@ -1099,7 +1230,7 @@ textarea.form-control:focus {
 }
 
 .role-box-head h4 {
-  margin-bottom: 6px;
+  margin: 0 0 6px;
   font-weight: 700;
 }
 
@@ -1123,14 +1254,14 @@ textarea.form-control:focus {
     url("https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=1600&q=80")
       center/cover no-repeat;
   color: var(--white);
-  border-radius: 30px;
+  border-radius: var(--radius-xl);
   padding: 60px 32px;
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.16);
 }
 
 .landing-cta-box h2 {
   font-weight: 800;
-  margin-bottom: 16px;
+  margin: 0 0 16px;
 }
 
 .landing-cta-box p {
@@ -1149,14 +1280,9 @@ textarea.form-control:focus {
   color: var(--white);
 }
 
-/* =========================
-   RESPONSIVE
-========================= */
 @media (max-width: 991.98px) {
   .menu-toggle {
     display: inline-flex;
-    align-items: center;
-    justify-content: center;
   }
 
   .sidebar {
@@ -1165,18 +1291,6 @@ textarea.form-control:focus {
 
   .sidebar.show {
     transform: translateX(0);
-  }
-
-  .sidebar-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(2, 6, 23, 0.45);
-    z-index: 1040;
-    display: none;
-  }
-
-  .sidebar-overlay.show {
-    display: block;
   }
 
   .main-content {
@@ -1224,6 +1338,12 @@ textarea.form-control:focus {
   .chart-box-small {
     height: 260px;
   }
+
+  .checklist-item .item-header,
+  .checklist-heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 767.98px) {
@@ -1240,11 +1360,30 @@ textarea.form-control:focus {
   .report-card,
   .landing-content-card,
   .landing-feature-card,
-  .workflow-card {
+  .workflow-card,
+  .auth-body {
     padding: 18px;
   }
 
   .stat-card {
     padding: 18px;
+  }
+
+  .topbar {
+    padding: 0 14px;
+  }
+
+  .topbar-brand {
+    font-size: 18px;
+  }
+
+  .main-content {
+    padding: 16px;
+  }
+
+  .checklist-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
   }
 }
