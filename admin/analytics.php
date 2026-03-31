@@ -79,12 +79,12 @@ while ($row = $res2->fetch_assoc()) {
 
 $recent_issues = [];
 $stmt3 = $conn->prepare("
-    SELECT i.issue_id, i.issue_title, i.severity, i.status, i.due_date,
+    SELECT i.issue_id, i.title AS issue_title, i.severity, i.status, i.due_date,
            p.project_name, p.site_name,
            u.full_name AS supervisor_name
     FROM issues i
     INNER JOIN projects p ON i.project_id = p.project_id
-    LEFT JOIN users u ON i.assigned_to = u.user_id
+    LEFT JOIN users u ON i.assigned_supervisor_id = u.user_id
     WHERE i.company_id = ?
     ORDER BY i.issue_id DESC
     LIMIT 10
@@ -101,7 +101,7 @@ include '../includes/header.php';
 
 
 
-<?php include 'includes/sidebar.php'; ?>
+<?php include '../includes/sidebar.php'; ?>
 <div class="row g-4 mb-4">
     <div class="col-md-3">
         <div class="stat-card bg-blue">

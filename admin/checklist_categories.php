@@ -36,10 +36,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_category'])) {
             $check = $conn->prepare("
                 SELECT category_id
                 FROM checklist_categories
-                WHERE company_id = ? AND category_name = ? AND category_id <> ?
+                WHERE category_name = ? AND category_id <> ?
                 LIMIT 1
             ");
-            $check->bind_param("isi", $company_id, $category_name, $category_id);
+            $check->bind_param("si", $category_name, $category_id);
             $check->execute();
             $checkRes = $check->get_result();
 
@@ -50,9 +50,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_category'])) {
                 $stmt = $conn->prepare("
                     UPDATE checklist_categories
                     SET category_name = ?, sort_order = ?, status = ?
-                    WHERE category_id = ? AND company_id = ?
+                    WHERE category_id = ?
                 ");
-                $stmt->bind_param("sisii", $category_name, $sort_order, $status, $category_id, $company_id);
+                $stmt->bind_param("sisi", $category_name, $sort_order, $status, $category_id);
 
                 if ($stmt->execute()) {
                     $log = $conn->prepare("
@@ -77,10 +77,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_category'])) {
             $check = $conn->prepare("
                 SELECT category_id
                 FROM checklist_categories
-                WHERE company_id = ? AND category_name = ?
+                WHERE category_name = ?
                 LIMIT 1
             ");
-            $check->bind_param("is", $company_id, $category_name);
+            $check->bind_param("s", $category_name);
             $check->execute();
             $checkRes = $check->get_result();
 
@@ -90,10 +90,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_category'])) {
             } else {
                 $stmt = $conn->prepare("
                     INSERT INTO checklist_categories (
-                        company_id, category_name, sort_order, status, created_at
-                    ) VALUES (?, ?, ?, ?, NOW())
+                        category_name, sort_order, status, created_at
+                    ) VALUES (?, ?, ?, NOW())
                 ");
-                $stmt->bind_param("isis", $company_id, $category_name, $sort_order, $status);
+                $stmt->bind_param("sis", $category_name, $sort_order, $status);
 
                 if ($stmt->execute()) {
                     $new_category_id = $stmt->insert_id;
@@ -127,10 +127,10 @@ if (isset($_GET['edit'])) {
         $stmt = $conn->prepare("
             SELECT category_id, category_name, sort_order, status
             FROM checklist_categories
-            WHERE category_id = ? AND company_id = ?
+            WHERE category_id = ?
             LIMIT 1
         ");
-        $stmt->bind_param("ii", $edit_id, $company_id);
+        $stmt->bind_param("i", $edit_id);
         $stmt->execute();
         $res = $stmt->get_result();
         $edit_category = $res->fetch_assoc();
@@ -149,9 +149,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_status'])) {
         $stmt = $conn->prepare("
             UPDATE checklist_categories
             SET status = ?
-            WHERE category_id = ? AND company_id = ?
+            WHERE category_id = ?
         ");
-        $stmt->bind_param("sii", $new_status, $category_id, $company_id);
+        $stmt->bind_param("si", $new_status, $category_id);
 
         if ($stmt->execute()) {
             $log = $conn->prepare("
@@ -181,17 +181,13 @@ $stmt = $conn->prepare("
         cc.category_name,
         cc.sort_order,
         cc.status,
-        cc.created_at,
         COUNT(ci.item_id) AS total_items
     FROM checklist_categories cc
     LEFT JOIN checklist_items ci
         ON cc.category_id = ci.category_id
-       AND ci.company_id = cc.company_id
-    WHERE cc.company_id = ?
-    GROUP BY cc.category_id, cc.category_name, cc.sort_order, cc.status, cc.created_at
+    GROUP BY cc.category_id, cc.category_name, cc.sort_order, cc.status
     ORDER BY cc.sort_order ASC, cc.category_id ASC
 ");
-$stmt->bind_param("i", $company_id);
 $stmt->execute();
 $res = $stmt->get_result();
 
@@ -203,7 +199,7 @@ include '../includes/header.php';
 ?>
 
 
-<?php include 'includes/sidebar.php'; ?>
+<?php include '../includes/sidebar.php'; ?>
 <?php if ($msg !== ''): ?>
 <div class="alert alert-<?= e($msg_type); ?>"><?= e($msg); ?></div>
 <?php endif; ?>
@@ -267,7 +263,6 @@ include '../includes/header.php';
                     <th>Sort Order</th>
                     <th>Total Items</th>
                     <th>Status</th>
-                    <th>Created</th>
                     <th>Edit</th>
                     <th>Status Change</th>
                 </tr>
@@ -282,7 +277,6 @@ include '../includes/header.php';
                     <td><?= (int)$cat['sort_order']; ?></td>
                     <td><?= (int)$cat['total_items']; ?></td>
                     <td><span class="badge bg-<?= $badge; ?>"><?= e($cat['status']); ?></span></td>
-                    <td><?= e($cat['created_at']); ?></td>
                     <td>
                         <a href="checklist_categories.php?edit=<?= (int)$cat['category_id']; ?>"
                             class="btn btn-sm btn-outline-primary">

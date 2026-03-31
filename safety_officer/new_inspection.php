@@ -480,6 +480,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_inspection'])) {
     }
 }
 
+$inspection_code = generateInspectionCode($conn);
+
 include '../includes/header.php';
 include '../includes/sidebar.php';
 ?>
@@ -489,6 +491,23 @@ include '../includes/sidebar.php';
     <?= htmlspecialchars($msg, ENT_QUOTES, 'UTF-8'); ?>
 </div>
 <?php endif; ?>
+
+<div class="page-heading">
+    <h1>Safety Inspection Checklist</h1>
+    <p>Complete the inspection using the checklist below to capture hazards, assign corrective actions, and maintain compliance.</p>
+</div>
+
+<div class="page-card mb-4">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h5 class="mb-1">Inspection Reference</h5>
+            <p class="small-muted mb-0">Inspection Code: <strong><?= e($inspection_code); ?></strong></p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <span class="badge bg-success">Safety Score Target: 90%+</span>
+        </div>
+    </div>
+</div>
 
 <form method="POST" enctype="multipart/form-data" id="inspectionForm">
     <div class="card page-card p-4 mb-4">

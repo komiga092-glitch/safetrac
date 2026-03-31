@@ -21,16 +21,16 @@ if ($issue_id <= 0) {
 
 $stmt = $conn->prepare("
     SELECT i.issue_id, i.company_id, i.project_id, i.inspection_id, i.response_id,
-           i.issue_title, i.description, i.severity, i.assigned_to, i.due_date,
+           i.title AS issue_title, i.description, i.severity, i.assigned_supervisor_id AS assigned_to, i.due_date,
            i.status, i.fixed_date, i.created_at,
            p.project_name, p.site_name, p.location,
-           ins.inspected_by, ins.inspection_date,
+           ins.conducted_by AS inspected_by, ins.inspection_date,
            u.full_name AS safety_officer_name
     FROM issues i
     INNER JOIN projects p ON i.project_id = p.project_id
     LEFT JOIN inspections ins ON i.inspection_id = ins.inspection_id
-    LEFT JOIN users u ON ins.inspected_by = u.user_id
-    WHERE i.issue_id = ? AND i.company_id = ? AND i.assigned_to = ?
+    LEFT JOIN users u ON ins.conducted_by = u.user_id
+    WHERE i.issue_id = ? AND i.company_id = ? AND i.assigned_supervisor_id = ?
     LIMIT 1
 ");
 $stmt->bind_param("iii", $issue_id, $company_id, $user_id);
@@ -45,7 +45,7 @@ if (!$issue) {
 
 $before_photos = [];
 $bp = $conn->prepare("
-    SELECT file_id, file_name, file_path, file_label, created_at
+    SELECT file_id, file_name, file_path, file_label, uploaded_at
     FROM file_uploads
     WHERE company_id = ?
       AND module_name = 'inspection_response'
@@ -110,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_issue_update']))
 
                 $fstmt = $conn->prepare("
                     INSERT INTO file_uploads (
-                        company_id, module_name, related_id, file_name, file_path, file_label, uploaded_by, created_at
+                        company_id, module_name, related_id, file_name, file_path, file_label, uploaded_by, uploaded_at
                     ) VALUES (?, 'issue_update', ?, ?, ?, 'after_photo', ?, NOW())
                 ");
                 $fstmt->bind_param("iissi", $company_id, $update_id, $fileName, $afterPhotoPath, $user_id);
@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_issue_update']))
             $istmt = $conn->prepare("
                 UPDATE issues
                 SET status = ?, fixed_date = ?
-                WHERE issue_id = ? AND company_id = ? AND assigned_to = ?
+                WHERE issue_id = ? AND company_id = ? AND assigned_supervisor_id = ?
             ");
             $istmt->bind_param("ssiii", $mark_status, $fixed_date_db, $issue_id, $company_id, $user_id);
             $istmt->execute();
@@ -132,10 +132,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_issue_update']))
                 $nmsg = "Issue #" . $issue_id . " has been fixed by supervisor and is waiting for recheck.";
 
                 $nstmt = $conn->prepare("
-                    INSERT INTO notifications (company_id, user_id, title, message, type, is_read, created_at)
-                    VALUES (?, ?, ?, ?, 'recheck_pending', 0, NOW())
+                    INSERT INTO notifications (company_id, user_id, title, message, related_table, related_id, is_read, created_at)
+                    VALUES (?, ?, ?, ?, 'issue_updates', ?, 0, NOW())
                 ");
-                $nstmt->bind_param("iiss", $company_id, $safety_officer_id, $ntitle, $nmsg);
+                $nstmt->bind_param("iissi", $company_id, $safety_officer_id, $ntitle, $nmsg, $update_id);
                 $nstmt->execute();
             }
 
@@ -156,16 +156,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_issue_update']))
 
             $stmt = $conn->prepare("
                 SELECT i.issue_id, i.company_id, i.project_id, i.inspection_id, i.response_id,
-                       i.issue_title, i.description, i.severity, i.assigned_to, i.due_date,
+                       i.title AS issue_title, i.description, i.severity, i.assigned_supervisor_id AS assigned_to, i.due_date,
                        i.status, i.fixed_date, i.created_at,
                        p.project_name, p.site_name, p.location,
-                       ins.inspected_by, ins.inspection_date,
+                       ins.conducted_by AS inspected_by, ins.inspection_date,
                        u.full_name AS safety_officer_name
                 FROM issues i
                 INNER JOIN projects p ON i.project_id = p.project_id
                 LEFT JOIN inspections ins ON i.inspection_id = ins.inspection_id
-                LEFT JOIN users u ON ins.inspected_by = u.user_id
-                WHERE i.issue_id = ? AND i.company_id = ? AND i.assigned_to = ?
+                LEFT JOIN users u ON ins.conducted_by = u.user_id
+                WHERE i.issue_id = ? AND i.company_id = ? AND i.assigned_supervisor_id = ?
                 LIMIT 1
             ");
             $stmt->bind_param("iii", $issue_id, $company_id, $user_id);

@@ -426,8 +426,8 @@ textarea.form-control {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   border: 1px solid #cbd5e1;
   background: #fff;
@@ -436,7 +436,7 @@ textarea.form-control {
 }
 
 .checklist-option .option-label::after {
-  content: '';
+  content: "";
   position: absolute;
   width: 0;
   height: 0;
@@ -452,8 +452,8 @@ textarea.form-control {
 }
 
 .checklist-option input:checked + .option-label::after {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   opacity: 1;
 }
 
@@ -464,18 +464,26 @@ textarea.form-control {
 
 .checklist-table th,
 .checklist-table td {
-  padding: 12px 14px;
+  padding: 14px 16px;
   border-top: 1px solid #e2e8f0;
   vertical-align: middle;
 }
 
 .checklist-table thead th {
-  background: #f8fafc;
+  background: #eff6ff;
   border-bottom: 2px solid #cbd5e1;
+  color: #0b1f3a;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .checklist-table tbody tr:nth-child(odd) td {
   background: #fbfcfd;
+}
+
+.checklist-table tbody tr:hover td {
+  background: #eff6ff;
 }
 
 .checklist-table td.text-center {
@@ -1240,4 +1248,3 @@ textarea.form-control:focus {
     padding: 18px;
   }
 }
-

@@ -58,8 +58,8 @@ if (isset($conn) && $conn instanceof mysqli && isset($_SESSION['user_id'], $_SES
 
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-head">
-        <h5 class="sidebar-title mb-0">Construction Safety</h5>
-        <div class="sidebar-subtitle">Inspection &amp; Issue Tracking</div>
+        <h5 class="sidebar-title mb-0">SafeTrack Safety</h5>
+        <div class="sidebar-subtitle">Professional Safety Management</div>
     </div>
 
     <div class="menu-section-title">Main</div>
